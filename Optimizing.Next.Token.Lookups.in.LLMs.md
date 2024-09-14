@@ -1,6 +1,6 @@
 
 
-## OpenAI ChatGPT-1-Oh (version 1.2024.247)
+## OpenAI ChatGPT-4-Oh (version 1.2024.247)
 
 **Q:** As the number of tokens an LLM can process increases, rather than iterate over the entirety of them to find the next token with the highest probability of occuring -- and since the probability for each token has also been normalized -- has anyone considerered creating a dictionary or hash lookup table of all of the probabilities between 0 and 1, then inserting each token at it corresponding probability and finally iterating through the table from 1.00 down to 0.00 to find the next token as a means to improve performance ?
 
