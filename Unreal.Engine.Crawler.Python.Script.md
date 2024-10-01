@@ -20,7 +20,9 @@ Before running the script, ensure you have the following Python packages install
 
 You can install them using pip:
 
+```python
 pip install requests beautifulsoup4 markdownify tqdm
+```
 
 The Python Script  
 
