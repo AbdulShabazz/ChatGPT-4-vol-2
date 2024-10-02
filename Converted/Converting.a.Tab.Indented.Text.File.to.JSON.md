@@ -1,3 +1,4 @@
+## OpenAI ChatGPT-1-Oh-mini (Strawberry-mini version 1.2024.268)
 ```python
 import json
 
@@ -73,5 +74,68 @@ def convert_to_json(input_file, output_file):
 if __name__ == "__main__":
     input_file = 'input.txt'   # Replace with your input file path
     output_file = 'output.json'  # Replace with your desired output file path
+    convert_to_json(input_file, output_file)
+```
+Alternative tree based approach
+```python
+import json
+
+class TreeNode:
+    def __init__(self, name):
+        self.name = name
+        self.children = {}
+
+    def to_dict(self):
+        if not self.children:
+            return ""
+        return {child: node.to_dict() for child, node in self.children.items()}
+
+def count_leading_tabs(line):
+    """Count the number of leading tabs in a line."""
+    return len(line) - len(line.lstrip('\t'))
+
+def build_tree(lines):
+    root = TreeNode("root")  # Dummy root
+    stack = [( -1, root )]  # Stack of (indent_level, TreeNode)
+
+    for line in lines:
+        if not line.strip():
+            continue  # Skip empty lines
+        current_indent = count_leading_tabs(line)
+        key = line.strip()
+        node = TreeNode(key)
+
+        # Find parent node
+        while stack and current_indent <= stack[-1][0]:
+            stack.pop()
+
+        if not stack:
+            raise ValueError("Indentation error in input file.")
+
+        parent_node = stack[-1][1]
+        parent_node.children[key] = node
+
+        # Push current node to stack
+        stack.append((current_indent, node))
+
+    return root
+
+def convert_to_json(input_file, output_file):
+    with open(input_file, 'r') as f:
+        lines = f.read().splitlines()
+
+    tree_root = build_tree(lines)
+    # Convert to dict, excluding the dummy root
+    json_dict = {child: node.to_dict() for child, node in tree_root.children.items()}
+
+    # Write to JSON file
+    with open(output_file, 'w') as f:
+        json.dump(json_dict, f, indent=2)
+
+    print(f"JSON has been successfully written to {output_file}")
+
+if __name__ == "__main__":
+    input_file = 'input.txt'     # Replace with your input file path
+    output_file = 'output.json' # Replace with your desired output file path
     convert_to_json(input_file, output_file)
 ```
