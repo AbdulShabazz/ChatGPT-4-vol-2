@@ -90,15 +90,21 @@ import json
 
 def count_leading_tabs(line):
     """Count the number of leading tabs in a line."""
-    return len(line) - len(line.lstrip('\t'))
+    # return len(line) - len(line.lstrip('\t'))
+    count = 0
+    for char in line:
+        if char == '\t':
+            count += 1
+        else:
+            break
+    return count
 
 def convert_to_json(input_file, output_file):
     with open(input_file, 'r') as f:
         lines = f.read().splitlines()
 
-    json_lines = []
-    stack = []  # To keep track of indentation levels
-    json_lines.append('{')  # Start of JSON
+    json_lines = ['{']
+    offset = 0  # To keep track of indentation levels
 
     for i, line in enumerate(lines):
         current_indent = count_leading_tabs(line)
@@ -110,29 +116,29 @@ def convert_to_json(input_file, output_file):
         else:
             next_indent = 0  # No next line
 
-        # Adjust the stack and close braces if current_indent < stack's last
-        while stack and current_indent < stack[-1]:
-            stack.pop()
-            json_lines.append('  ' * stack.__len__() + '},')
+        offset = next_indent - current_indent
 
         # Prepare the key with proper indentation
-        indent = '  ' * (current_indent + 1)
-        if next_indent > current_indent:
+        indent = '\t' * (current_indent + 1)
+        if offset < 0:
             # Current key has children
-            json_lines.append(f'{indent}"{key}": {{')
-            stack.append(current_indent)
-        elif next_indent < current_indent:
+            json_lines.append(f'{indent}"{key}": ""\n{indent}}}')
+            offset += 1
+            while offset < 0:
+                json_lines.append(f'{indent}}}')
+                offset += 1
+        elif offset > 0:
             # Current key is a leaf and we need to close braces
-            json_lines.append(f'{indent}"{key}": "",')
+            json_lines.append(f'{indent}"{key}": {{')
             # Close the braces outside the loop
         else:
             # Current key is a leaf
             json_lines.append(f'{indent}"{key}": "",')
 
     # Close any remaining open braces
-    while stack:
-        stack.pop()
-        json_lines.append('  ' * (stack.__len__() +1) + '},')
+    while offset > 0:
+        json_lines.append('\t' * (offset) + '},')
+        offset -= 1
 
     # Remove the last comma if exists and close the root
     if json_lines[-1].endswith(','):
@@ -148,18 +154,19 @@ def convert_to_json(input_file, output_file):
     except json.JSONDecodeError as e:
         print("Error in generated JSON:", e)
         print("Generated JSON:")
-        print(json_str)
-        return
+        # print(json_str)
+        # return
 
     # Write the JSON to the output file with indentation
     with open(output_file, 'w') as f:
-        json.dump(parsed_json, f, indent=2)
+        #json.dump(parsed_json, f, indent=2)
+        f.write(json_str)
 
     print(f"JSON has been successfully written to {output_file}")
 
 if __name__ == "__main__":
-    input_file = 'input.txt'   # Replace with your input file path
-    output_file = 'output.json'  # Replace with your desired output file path
+    input_file = 'TreeViewPanel.txt'   # Replace with your input file path
+    output_file = 'TreeViewPanel.json'  # Replace with your desired output file path
     convert_to_json(input_file, output_file)
 ```
 Alternative tree based approach
