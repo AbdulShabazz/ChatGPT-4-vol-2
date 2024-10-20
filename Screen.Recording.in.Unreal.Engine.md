@@ -65,25 +65,26 @@ Here is a step-by-step guide on how to record gameplay with the Sequencer Tool:
 *	Choose Camera Cuts Track.
 *	Click the + Camera icon next to the Camera Cuts Track to add a new camera or select an existing one from the level.
 *	This camera will be used to record the gameplay view.
+  
 **2.	Position and Preview the Camera:**
 *	Select the camera in the level and adjust its position to capture the right perspective for your gameplay.
 *	Use the Pilot Camera feature (right-click on the camera and select Pilot) to follow the camera view and see how the game looks through it.
 
-**Step 3: Add Gameplay Elements (Optional)**
+  **Step 3: Add Gameplay Elements (Optional)**
 
 If you want to record specific actors or gameplay elements as part of the cinematic:
 
-**1.	Add Actors to the Sequencer:**
+  **1.	Add Actors to the Sequencer:**
 *	In the **Sequencer**, click + Track, and then choose Actor to Sequencer.
 *	Select the gameplay actors or elements you wish to include in the sequence.
-**2.	Record Gameplay Animation (Optional):**
+  **2.	Record Gameplay Animation (Optional):**  
 *	If your game has custom character animations, you can record their movements by creating keyframes within the Sequencer for added control.
 
 **Step 4: Record Gameplay in Real Time**
 
 If you want to capture gameplay events (like player movement or interaction) in real time:
 
-**1.	Use Take Recorder:**
+  **1.	Use Take Recorder:**
 *	Unreal Engine’s **Take Recorder** tool allows you to capture real-time gameplay events into assets that can be inserted into a **Sequencer**.
 *	Navigate to **Window > Cinematics > Take Recorder.**
 *	In the **Take Recorder** panel, click **+ Source** and select the actors or components you want to record (e.g., your character, camera, etc.).
