@@ -98,21 +98,21 @@ If you want to capture gameplay events (like player movement or interaction) in 
 
 **Step 6: Render the Sequence**
 
-	1.	Once your gameplay and camera movements are recorded, you can render the sequence as a video.  
-	2.	Open the Movie Render Queue:  
-	* Go to Cinematics > Movie Render Queue.
-	*	Click **+ Render** and select the **Level Sequence** you just created.
-	3.	Render Settings:  
-	*	Choose the desired output settings (resolution, frame rate, file format).
-	*	You can also enable advanced rendering features such as anti-aliasing, post-processing, or motion blur to improve the final output quality.
-	4.	Render Output:
-	*	Click Render to start rendering the gameplay video.
+  1. Once your gameplay and camera movements are recorded, you can render the sequence as a video.  
+  2.	**Open the Movie Render Queue:**  
+* Go to **Cinematics > Movie Render Queue.**
+*	Click **+ Render** and select the **Level Sequence** you just created.
+  3.	**Render Settings:**  
+*	Choose the desired output settings (resolution, frame rate, file format).
+*	You can also enable advanced rendering features such as anti-aliasing, post-processing, or motion blur to improve the final output quality.
+  4.	**Render Output:**
+*	Click **Render** to start rendering the gameplay video.
 
 **Summary of Tools Involved**
 
-*	Sequencer: To create and control cinematics, including adding cameras, gameplay elements, and actors.
-*	Take Recorder: To record gameplay events and player interactions in real-time and add them to the Sequencer.
-*	Movie Render Queue: To render the final sequence as a video file in high quality.
+*	**Sequencer:** To create and control cinematics, including adding cameras, gameplay elements, and actors.
+*	**Take Recorder:** To record gameplay events and player interactions in real-time and add them to the Sequencer.
+*	**Movie Render Queue:** To render the final sequence as a video file in high quality.
 
 **Additional Tips**
 
