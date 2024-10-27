@@ -77,14 +77,14 @@ The system will dynamically adapt character movesets based on environmental inpu
 
 **Advantages of the Proposed Workflow**
 
-	1.	**Flexibility and Reusability:**
+1.	**Flexibility and Reusability:**
 *	Movements captured for each joint are modular, enabling the reuse of specific actions across different characters or scenarios.
 *	Custom-tailored movement splines allow for greater creative control and adaptability for each character.
-	2.	**Anatomical Accuracy:**
+2.	**Anatomical Accuracy:**
 *	The workflow integrates joint constraints to maintain anatomically accurate motion, preventing unrealistic movements during blending.
-	3.	**Dynamic Blending:**
+3.	**Dynamic Blending:**
 *	The use of splines enables fluid blending of motions in real-time, ensuring smooth transitions and responsive character animation under varying conditions.
-	4.	**Scalable and Customizable:**
+4.	**Scalable and Customizable:**
 *	The modular nature of the system allows for easy expansion, enabling the creation of large, diverse sets of animations without the need for new full-body captures.
 
 **Future Expansion**
