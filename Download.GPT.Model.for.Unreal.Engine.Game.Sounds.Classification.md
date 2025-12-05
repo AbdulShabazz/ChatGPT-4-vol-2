@@ -511,3 +511,371 @@ If you want, I can next sketch the exact JSON schema for your “game taxonomy t
 [6]: https://huggingface.co/mistralai/Ministral-3-8B-Instruct-2512?utm_source=chatgpt.com "mistralai/Ministral-3-8B-Instruct-2512"
 [7]: https://developer.nvidia.com/blog/nvidia-accelerated-mistral-3-open-models-deliver-efficiency-accuracy-at-any-scale/?utm_source=chatgpt.com "NVIDIA-Accelerated Mistral 3 Open Models Deliver ..."
 ```
+**Q: gpt-oss:120b is available!**
+
+**A:** Use `gpt-oss:120b` as a drop-in replacement for Ministral-3 in the “LLM tagging” stage: keep CLAP (or any audio model) to extract semantics from WAVs, then ask `gpt-oss:120b` to map those semantics into your gladiator/MMORPG taxonomy.
+
+Below is a concrete way to wire it up assuming `gpt-oss:120b` is exposed via an Ollama-style HTTP API.
+
+---
+
+## 1. High-level pipeline
+
+1. Audio → semantics:
+
+   * Use CLAP or another audio-text model to get a short caption or N generic labels per file (you already have that pattern).
+2. Semantics → game taxonomy:
+
+   * For each sound, send a compact prompt to `gpt-oss:120b`:
+
+     * Sound filename
+     * Short description / CLAP labels
+     * Fixed JSON schema for your tags
+   * Parse the JSON, write it into your CSV / Unreal DataTable.
+
+`gpt-oss:120b` is overkill for this, which is good: you can afford strict structured output and richer, game-aware tags.
+
+---
+
+## 2. Example JSON schema for tags
+
+You can tune these fields, but this is a good starting point for a Roman gladiator arena:
+
+```json
+{
+  "category": "melee | ranged | movement | crowd | environment | ui",
+  "weapon_type": "sword | spear | mace | shield | unarmed | none",
+  "impact_intensity": "none | light | medium | heavy",
+  "material_primary": "metal | flesh | wood | stone | sand | cloth | mixed",
+  "distance": "close | mid | far",
+  "layer": "diegetic | ui | ambience",
+  "emotion": "neutral | tense | triumphant | fearful | brutal",
+  "suggested_tags": [
+    "melee_sword_slash_heavy",
+    "hit_armor_metal_heavy",
+    "gladiator_elite"
+  ]
+}
+```
+
+---
+
+## 3. Python: calling `gpt-oss:120b` via HTTP
+
+This assumes a local chat endpoint identical to Ollama’s (`POST /api/chat`), with the model name `gpt-oss:120b`.
+
+```python
+import json
+import requests
+
+MODEL = "gpt-oss:120b"
+API_URL = "http://127.0.0.1:11434/api/chat"  # adjust if different
+
+SYSTEM_PROMPT = """
+You are a game audio taxonomy engine for a 3rd person MMORPG about Roman gladiators and the Coliseum.
+
+Given:
+- a sound asset name
+- one or more short descriptions of how the sound actually feels/behaves
+
+You MUST output ONLY valid JSON (no comments, no prose) matching this schema:
+
+{
+  "category": "melee | ranged | movement | crowd | environment | ui",
+  "weapon_type": "sword | spear | mace | shield | unarmed | none",
+  "impact_intensity": "none | light | medium | heavy",
+  "material_primary": "metal | flesh | wood | stone | sand | cloth | mixed",
+  "distance": "close | mid | far",
+  "layer": "diegetic | ui | ambience",
+  "emotion": "neutral | tense | triumphant | fearful | brutal",
+  "suggested_tags": ["kebab_case_tag", "..."]
+}
+
+- Choose the single best value for each scalar field.
+- suggested_tags: 3–7 short identifiers in kebab_case or snake_case.
+"""
+
+def query_gpt_oss(sound_name: str,
+                  descriptions: list[str],
+                  extra_context: str | None = None) -> dict:
+    desc_block = "\n".join(f"- {d}" for d in descriptions)
+    user_prompt = (
+        f"Sound asset name: {sound_name}\n"
+        f"Descriptions:\n{desc_block}\n"
+    )
+    if extra_context:
+        user_prompt += f"\nExtra context: {extra_context}\n"
+
+    payload = {
+        "model": MODEL,
+        "messages": [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": user_prompt},
+        ],
+        "stream": False,
+    }
+
+    resp = requests.post(API_URL, json=payload, timeout=300)
+    resp.raise_for_status()
+    content = resp.json()["message"]["content"].strip()
+
+    # Strict JSON expectation; if it fails you can add a repair step
+    return json.loads(content)
+
+
+if __name__ == "__main__":
+    # Example: use CLAP output as descriptions
+    sound_name = "metal_hit_gladiator_03"
+    clap_labels = [
+        "heavy metal impact on armor",
+        "short ringing clang, close perspective",
+        "combat hit, not ambient"
+    ]
+
+    result = query_gpt_oss(sound_name, clap_labels)
+    print(json.dumps(result, indent=2))
+```
+
+You can integrate this into your existing CLAP tagging script by:
+
+* After computing CLAP top-K labels / captions for each file, call `query_gpt_oss`.
+* Merge the returned JSON into your CSV row:
+
+```csv
+relative_path,category,weapon_type,impact_intensity,material_primary,distance,layer,emotion,suggested_tags
+SFX/weapons/metal_hit_gladiator_03.wav,melee,sword,heavy,metal,close,diegetic,brutal,"['melee_sword_slash_heavy','hit_armor_metal_heavy','gladiator_elite']"
+```
+
+That CSV can then be imported into Unreal as a DataTable and used to drive:
+
+* Sound cue selection logic.
+* Gameplay tags on `USoundWave` or wrapper `UDataAsset` objects.
+* Content browser filters (via tags or metadata).
+
+---
+
+## 4. If `gpt-oss:120b` is served differently
+
+If your `gpt-oss:120b` instance is:
+
+* vLLM / TGI / custom FastAPI:
+
+  * Replace the `API_URL` and payload shape with whatever that service expects (usually a `/generate` or `/v1/chat/completions`-like endpoint).
+* Node-based:
+
+  * Same idea, but call from Node and write out JSON/CSV for Unreal.
+
+The core pattern stays identical: audio model → short descriptors → `gpt-oss:120b` → strict JSON tags.
+
+**Q: gpt-oss will be downloaded.**
+
+**A:** Once `gpt-oss:120b` is downloaded and served, the next step is to wire it into your tagging pipeline as the “semantic → game taxonomy” stage.
+
+Below is a concrete plan and minimal code you can drop into your existing Python CLAP script.
+
+---
+
+## 1. Assumptions
+
+I will assume:
+
+* `gpt-oss:120b` is exposed via an OpenAI-compatible Chat Completions API, e.g.:
+
+  * Base URL: `http://127.0.0.1:8000/v1`
+  * Model name: `gpt-oss-120b`
+
+If your server exposes an Ollama-style `/api/chat` instead, you only need to swap the call; the prompt and JSON contract stay the same.
+
+---
+
+## 2. Taxonomy schema (fixed contract to the model)
+
+Define a compact JSON schema that will be stable across the project:
+
+```json
+{
+  "category": "melee | ranged | movement | crowd | environment | ui",
+  "weapon_type": "sword | spear | mace | shield | unarmed | none",
+  "impact_intensity": "none | light | medium | heavy",
+  "material_primary": "metal | flesh | wood | stone | sand | cloth | mixed",
+  "distance": "close | mid | far",
+  "layer": "diegetic | ui | ambience",
+  "emotion": "neutral | tense | triumphant | fearful | brutal",
+  "suggested_tags": ["kebab_case_tag", "..."]
+}
+```
+
+You will ask `gpt-oss` to return only valid JSON in exactly this shape.
+
+---
+
+## 3. Python client for `gpt-oss:120b` (OpenAI-compatible)
+
+Install the OpenAI Python client:
+
+```bash
+pip install --upgrade openai
+```
+
+Minimal wrapper:
+
+```python
+from openai import OpenAI
+import json
+
+# Adjust to your local gpt-oss deployment
+client = OpenAI(
+    base_url="http://127.0.0.1:8000/v1",
+    api_key="gpt-oss-local"  # or any dummy string if your server ignores it
+)
+
+SYSTEM_PROMPT = """
+You are a game audio taxonomy engine for a 3rd person MMORPG about Roman gladiators and the Coliseum.
+
+Given:
+- a sound asset name
+- one or more short descriptions of how the sound behaves in-game
+
+You MUST output ONLY valid JSON (no comments, no prose) matching this schema:
+
+{
+  "category": "melee | ranged | movement | crowd | environment | ui",
+  "weapon_type": "sword | spear | mace | shield | unarmed | none",
+  "impact_intensity": "none | light | medium | heavy",
+  "material_primary": "metal | flesh | wood | stone | sand | cloth | mixed",
+  "distance": "close | mid | far",
+  "layer": "diegetic | ui | ambience",
+  "emotion": "neutral | tense | triumphant | fearful | brutal",
+  "suggested_tags": ["kebab_case_tag", "..."]
+}
+
+Rules:
+- Choose exactly one value for each scalar field.
+- suggested_tags: 3 to 7 short identifiers in kebab_case or snake_case.
+- Do not add extra fields.
+"""
+
+def classify_with_gpt_oss(sound_name: str, descriptions: list[str]) -> dict:
+    desc_block = "\n".join(f"- {d}" for d in descriptions)
+    user_prompt = (
+        f"Sound asset name: {sound_name}\n"
+        f"Descriptions:\n{desc_block}\n"
+        "Return only JSON:\n"
+    )
+
+    resp = client.chat.completions.create(
+        model="gpt-oss-120b",
+        messages=[
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": user_prompt},
+        ],
+        temperature=0.0,
+        max_tokens=256,
+    )
+
+    content = resp.choices[0].message.content.strip()
+
+    # Expect strict JSON; if not, you can add a repair step later
+    return json.loads(content)
+```
+
+---
+
+## 4. Integrate with your CLAP audio pipeline
+
+Assume your CLAP pipeline already computes, for each file:
+
+* `relative_path`: path to the WAV
+* `clap_tags`: list of `(label, score)` pairs
+* Optionally, a simple free-text caption
+
+You can convert the CLAP output into condensed descriptions and feed to `gpt-oss`:
+
+```python
+def build_descriptions_from_clap(clap_tags: list[tuple[str, float]]) -> list[str]:
+    # Example: keep top 3 CLAP labels and embed score in text
+    descs = []
+    for label, score in clap_tags[:3]:
+        descs.append(f"{label.replace('_', ' ')} (confidence {score:.2f})")
+    return descs
+```
+
+Inside your main loop over WAV files:
+
+```python
+rows = []
+
+for audio_path in iter_wavs(root):
+    rel = audio_path.relative_to(root)
+    print(f"Processing {rel}...")
+
+    try:
+        clap_results = classify_audio(audio_path, top_k=3)  # from your CLAP code
+        descriptions = build_descriptions_from_clap(clap_results)
+
+        gpt_meta = classify_with_gpt_oss(
+            sound_name=str(rel),
+            descriptions=descriptions
+        )
+
+    except Exception as e:
+        print(f"  ERROR on {rel}: {e}")
+        continue
+
+    # Flatten JSON into CSV row
+    row = {
+        "relative_path": str(rel),
+        "category": gpt_meta["category"],
+        "weapon_type": gpt_meta["weapon_type"],
+        "impact_intensity": gpt_meta["impact_intensity"],
+        "material_primary": gpt_meta["material_primary"],
+        "distance": gpt_meta["distance"],
+        "layer": gpt_meta["layer"],
+        "emotion": gpt_meta["emotion"],
+        "suggested_tags": ",".join(gpt_meta["suggested_tags"]),
+    }
+
+    rows.append(row)
+```
+
+Then write `rows` to `sound_taxonomy.csv` and import it into Unreal as a Data Table keyed by `relative_path`.
+
+---
+
+## 5. If your `gpt-oss` server is Ollama-style instead
+
+If instead you are exposing `gpt-oss:120b` as an Ollama `/api/chat` model:
+
+* Replace the OpenAI call with:
+
+```python
+import requests
+
+def classify_with_gpt_oss_ollama(sound_name: str, descriptions: list[str]) -> dict:
+    desc_block = "\n".join(f"- {d}" for d in descriptions)
+    user_prompt = (
+        f"Sound asset name: {sound_name}\n"
+        f"Descriptions:\n{desc_block}\n"
+        "Return only JSON:\n"
+    )
+
+    payload = {
+        "model": "gpt-oss:120b",
+        "messages": [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": user_prompt},
+        ],
+        "stream": False,
+    }
+
+    resp = requests.post("http://127.0.0.1:11434/api/chat", json=payload, timeout=600)
+    resp.raise_for_status()
+    content = resp.json()["message"]["content"].strip()
+    return json.loads(content)
+```
+
+Everything else in the pipeline is unchanged.
+
+---
+
+If you want, I can next give you a concrete Unreal Engine `USTRUCT` + Data Table layout that matches this JSON/CSV so you can use the taxonomy at runtime for sound selection and gameplay tags.
