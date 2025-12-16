@@ -917,3 +917,327 @@ If you want next:
 * Validation against **UE 5.7 shipping/cooking**
 
 Say which and I’ll continue.
+
+## OpenAI ChatGPT v1.2025.336 HUD.Font.Recommendations.md
+
+**Q: In step four, Create Composite Fonts, what do i change in the details panel for: Font, Runtime Font (e.g., Legacy Font Size), etc?**
+
+**A:** For UMG in modern Unreal Engine, ignore the “Runtime Font / Legacy Font Size” path and use a Composite Font (Font asset) + Font Faces. Configure the Composite Font asset only, then select it in Text widgets.
+
+Composite Font asset configuration (Step 4)
+
+1. Create: Content Browser → Right-click → User Interface → Font.
+2. Open the Font asset.
+3. In Details:
+
+   * Font Cache Type: Default (leave as-is).
+   * Composite Font: configure these sections:
+
+     * Default Typeface
+
+       * Add entries for Regular/Medium/Bold and point each to the corresponding Font Face asset (Roboto Condensed Regular/Medium/Bold, etc.).
+     * Fallback Typeface
+
+       * Add Noto Sans (or your fallback) as the fallback Font Face.
+     * (Optional) Sub-Typefaces
+
+       * Add per-script overrides (e.g., CJK → Noto Sans CJK) if you ship those glyph sets.
+
+Do not set any “size” in the Font asset. Size is per Text widget.
+
+Text widget configuration (what to set in Details)
+In each Text Block (UMG):
+
+* Font → pick your Composite Font (e.g., Font_HUD_Primary).
+* Typeface Font Name → Medium / Regular / Bold (one of the names you defined in the Default Typeface).
+* Size → set your base size (DPI scaling will multiply it).
+* Letter Spacing → set per your typography asset (e.g., +3 / +4).
+* Outline Settings → optional; keep Outline Size small (1) for readability.
+
+What “Runtime Font / Legacy Font Size” is
+
+* That path is for older/legacy font handling and some niche cases.
+* For a Composite Font workflow, you do not use “Legacy Font Size” as a global setting; it does not replace per-widget size.
+* If you see “Runtime Font” in some contexts (Slate/UMG internals), treat it as implementation detail; your control surface is the Composite Font + per-widget settings.
+
+Practical checks
+
+* Ensure each weight is a distinct Font Face asset (not the same file reused).
+* Verify the Typeface names exactly match what you select in Text widgets.
+* Package a Shipping build and confirm the font renders with the Windows font uninstalled (proof you are not using system fonts).
+
+If you paste a screenshot of the Font asset Details panel you’re looking at (the exact fields shown vary by UE version), I can map field-by-field to the correct settings.
+
+**Q: In the Font_UI_Body composite font, I only have the option of size: variantFont,18pt,24pt,28pt variations. Did I import this font library correctly?**
+
+**A:** No. Those `…18pt / 24pt / 28pt` choices mean Unreal imported/created an **offline (baked) legacy font asset** (fixed point sizes), not a **Font Face** suitable for a Composite Font workflow.
+
+What you want in a Composite Font “Typeface” entry is a **Font Face asset** (Regular/Medium/etc) with no baked-size variants.
+
+Fix (recommended)
+
+1. Delete the incorrectly imported font assets (or move them aside).
+2. Re-download the font as **static TTFs** (not the single variable file), e.g.:
+
+   * `Inter-Regular.ttf`
+   * `Inter-Medium.ttf`
+     Avoid `Inter-VariableFont…ttf` for this pipeline.
+3. Re-import the `.ttf` files into `/Content/UI/Fonts/Inter/`.
+4. Confirm you now have **Font Face** assets (type shows as Font Face when selected).
+5. Rebuild `Font_UI_Body`:
+
+   * Default Typeface:
+
+     * Regular → Inter Regular (Font Face)
+     * Medium → Inter Medium (Font Face)
+   * Fallback Typeface:
+
+     * Noto Sans (Font Face)
+
+If you must keep the current import
+
+* Check the font asset you imported and change its **Font Cache Type** to **Runtime** (if available in that asset type). If the asset type is the old “Font” with baked sizes, it often cannot behave like a proper Font Face in a Composite Font.
+
+Sanity check
+
+* In Content Browser, click the asset you intend to use in the Composite Font. In Details it should clearly indicate **Font Face** (and show face/weight info), not a list of baked point sizes.
+
+If you share the exact filename you imported (e.g., `Inter-VariableFont_opsz,wght.ttf`), I can tell you the correct static-file alternative and the expected assets Unreal should generate.
+
+**Q: The zipped folder was downloaded with only these variations. Are they insufficient?**
+
+**A:** They can be sufficient for shipping, but they are insufficient for the Composite Font workflow you want if Unreal only exposes them as fixed baked “18pt/24pt/28pt” variants.
+
+What you downloaded is almost certainly an “optical size” (or variable) packaging that Unreal is importing as offline/baked faces at a few point sizes (those `18pt/24pt/28pt`). That is fine for print-style workflows, but it breaks the normal game UI model where you pick any size per widget and let DPI scaling handle it.
+
+What to do
+
+1. Prefer static font files (recommended)
+
+* You want separate static files like:
+
+  * `Inter-Regular.ttf`
+  * `Inter-Medium.ttf`
+  * `Inter-SemiBold.ttf` (optional)
+* With these, Unreal creates proper **Font Face** assets and your Composite Font Typeface entries won’t be “18pt/24pt/28pt”; they’ll be named weights (Regular/Medium/etc).
+
+2. If your zip only includes those size variants
+
+* They are not “wrong,” but they lock you into those baked sizes and will cause scaling artifacts or inconsistent sizing across DPI/resolutions.
+* For an MMO HUD, this is a bad constraint.
+
+3. Generate static instances yourself (works immediately)
+   If you only have a variable font (or optical-size font) and no static TTFs, generate static instances:
+
+* Install fonttools:
+
+  * `py -m pip install fonttools`
+* Create static instances (example):
+
+  * `py -m fonttools.varLib.instancer Inter-VariableFont_opsz,wght.ttf wght=400 opsz=14 -o Inter-Regular.ttf`
+  * `py -m fonttools.varLib.instancer Inter-VariableFont_opsz,wght.ttf wght=500 opsz=14 -o Inter-Medium.ttf`
+  * `py -m fonttools.varLib.instancer Inter-VariableFont_opsz,wght.ttf wght=700 opsz=14 -o Inter-Bold.ttf`
+
+Then import those `.ttf` outputs into Unreal and rebuild `Font_UI_Body` using the resulting **Font Face** assets.
+
+Quick verification in Unreal
+
+* In Content Browser, select the imported face asset.
+* It should be a **Font Face** (weight/style metadata), not a legacy Font asset with only “18pt/24pt/28pt” baked choices.
+
+If you paste the exact filenames from the zip (or a screenshot of the Content Browser asset types), I can tell you which case you’re in and the exact instancer commands to produce the correct Regular/Medium/Bold set.
+
+**Q: Where is fonttools installed so i can add to path?**
+
+**A:** `fonttools` is a **Python package**, not a standalone executable. What you need on PATH is **Python**, not `fonttools` itself. Once Python is on PATH, you invoke fonttools via `python -m fonttools`.
+
+Below is the exact, minimal setup on Windows.
+
+---
+
+## 1. Verify Python is on PATH
+
+Open **Command Prompt** and run:
+
+```
+python --version
+```
+
+If this works, Python is already on PATH.
+If not, install Python from python.org and **check “Add Python to PATH”** during install.
+
+---
+
+## 2. Install fonttools (correct command)
+
+Run:
+
+```
+python -m pip install fonttools
+```
+
+This installs the package into Python’s site-packages directory.
+
+Typical install location (example):
+
+```
+C:\Users\<you>\AppData\Local\Programs\Python\Python311\Lib\site-packages\fontTools\
+```
+
+You do **not** need to add this directory to PATH.
+
+---
+
+## 3. How to run fonttools (this is the key point)
+
+You **do not** run `fonttools` directly.
+
+Always run it like this:
+
+```
+python -m fonttools.varLib.instancer <args>
+```
+
+Example:
+
+```
+python -m fonttools.varLib.instancer Inter-VariableFont_opsz,wght.ttf wght=500 opsz=14 -o Inter-Medium.ttf
+```
+
+If that command runs, everything is correctly configured.
+
+---
+
+## 4. Common mistake (do NOT do this)
+
+❌ Trying to add `fonttools` to PATH
+❌ Trying to run `fonttools.exe`
+❌ Looking for a `fonttools` binary
+
+There isn’t one.
+
+---
+
+## 5. Sanity check
+
+Run:
+
+```
+python -c "import fontTools; print(fontTools.__version__)"
+```
+
+If it prints a version number, you are good.
+
+---
+
+## 6. Unreal Engine relevance (why this matters)
+
+Once you generate static `.ttf` files:
+
+* Import them into Unreal
+* Unreal creates **Font Face** assets
+* Composite Fonts work correctly
+* No more `18pt / 24pt / 28pt` baked variants
+
+---
+
+If you want, paste:
+
+* Your Python version
+* The exact `.ttf` filename you downloaded
+
+I’ll give you the **exact instancer commands** for Regular / Medium / Bold tuned for Unreal HUD usage.
+
+**Q: It doesn't work. I can only install.**
+
+**A:** You do not need to “add fonttools to PATH.” You need a working Python launcher + pip, then run fonttools via `python -m …`. If you “can only install” and cannot run, it is almost always one of these Windows issues: (1) Python not on PATH, (2) Windows Store “python” alias intercepting, (3) pip installed into a different Python than you are running.
+
+Do this in order.
+
+1. Use the Python Launcher (py), not python
+   Open Command Prompt and run:
+
+```
+py --version
+```
+
+If that works, use `py` for everything below.
+
+2. Install fonttools into the same Python you will run
+
+```
+py -m pip install --upgrade pip
+py -m pip install fonttools
+```
+
+3. Verify the module import (this proves installation + interpreter match)
+
+```
+py -c "import fontTools; print(fontTools.__version__)"
+```
+
+If this prints a version number, you are done with setup.
+
+4. Run instancer using -m (this is the correct “execution”)
+   From the folder containing your variable font:
+
+```
+py -m fonttools.varLib.instancer Inter-VariableFont_opsz,wght.ttf wght=500 opsz=14 -o Inter-Medium.ttf
+```
+
+If Step 1 fails (py not found)
+
+* You do not have the Python launcher installed. Install Python from python.org and ensure the launcher is installed, or use the explicit python path.
+
+If Step 1 works but Step 3 fails (“No module named fontTools”)
+
+* pip installed to a different interpreter. Force user-site install:
+
+```
+py -m pip install --user fonttools
+```
+
+Then retry Step 3.
+
+If `python` runs Microsoft Store instead of Python
+
+* Disable App Execution Aliases:
+
+  * Settings → Apps → Advanced app settings → App execution aliases
+  * Turn OFF `python.exe` and `python3.exe`
+    Then prefer `py` anyway.
+
+If you paste the exact error text from:
+
+* `py --version`
+* `py -c "import fontTools; print(fontTools.__version__)"`
+* and the instancer command
+  I will pinpoint the single failing piece and the exact fix.
+
+**Q: Ahh, spelling! "fontTools.varLib..instancer" is the correct command line invocation.**
+
+**A:** Correct invocation is with **one dot** between `varLib` and `instancer`, and the module name is case-sensitive:
+
+```
+py -m fonttools.varLib.instancer <variable-font.ttf> wght=500 opsz=14 -o Inter-Medium.ttf
+```
+
+Notes (to avoid the common traps):
+
+* Package import name is `fontTools` (capital T) but the module runner path is `fonttools...` (lowercase), as shown above.
+* Do not use a double dot: `varLib..instancer` is invalid.
+* If you use `python` instead of `py`, the equivalent is:
+
+  ```
+  python -m fonttools.varLib.instancer ...
+  ```
+
+Typical set for Unreal HUD (static instances):
+
+```
+py -m fonttools.varLib.instancer Inter-VariableFont_opsz,wght.ttf wght=400 opsz=14 -o Inter-Regular.ttf
+py -m fonttools.varLib.instancer Inter-VariableFont_opsz,wght.ttf wght=500 opsz=14 -o Inter-Medium.ttf
+py -m fonttools.varLib.instancer Inter-VariableFont_opsz,wght.ttf wght=700 opsz=14 -o Inter-Bold.ttf
+```
+
+Import those `.ttf` files into Unreal; you should then get proper **Font Face** assets (no `18pt/24pt/28pt` baked variants) and your Composite Font typeface entries will be weight-named.
